@@ -1,0 +1,108 @@
+
+
+---1.6 (Timo) --------------------------------------------------------
+
+
+%%%%%%%%% Main TrackIt UI: %%%%%%%%%%
+
+	Major new features:
+	- Added universal timestamp functionality for arbitrary sequences of frame cycle times: Menu -> View -> Timestamp
+	- Added color, bold font, pixelsize and auto corner location to scale bar: Menu -> View -> Scale bar
+	- Added tool to classify tracks into bound and free track segments using vbSPT: Menu -> Tools -> Classify bound and free segments (vbSPT)
+
+	Minor improvements:
+	- Axis toolbar is now disabled while a movie is created
+	- SubROI border handling popup menu has been moved from "Regions of interest" panel to the "Tracking" panel
+	- Added ROI LineStyle and SubRoi Linewidth to the plot settings at: Menu -> "View" -> "Plot settings"
+	- Number of gap frames in a track are now displayed when a track is selected
+
+	Bug fixes:
+	- Fixed bug where "Scale to roi/sub-roi/square region" returns to movie dimension when zooming out
+	- Axis limits are now scaled when switching between displayed images (original, standard deviation, jump distance map etc.)
+	- Removed scaling factor when "no image" is selected in the image selection menu
+
+%%%%%%%%% Data Analysis Tool %%%%%%%%%%
+
+	Major new features:
+	- Batch files can now be renamed and legend entries are named after the names in the list of batches
+	- Added option to change axis, label and legend font size: Right clicking on the axis -> Press "Adjust axis, label and legend font size"
+	- Added possibility to plot the diffusion fit results directly onto the jump distance histogram
+	- Added tool "Survival time distribution" to the "Durations" tab, showing the survival time distribution for each timelapse condition - identical to GRID 
+	- Added tool "Anisotropy" to the "Angles" tab
+	- Added tool "Anisotropy vs. mean jump distance"to the "Angles" tab
+	- Added tool "Number of angles"to the "Angles" tab
+	- Added tool "Total number of spots per movie" to "Statistics" tab
+	- Added display of median plus quartiles when moviewise values are shown
+
+	Minor improvements:
+	- Distributed tools to the tabs "Jumps", "Angles", "MSD", "Tracked fractions", "Durations", "Other"
+	- "Export to matlab workspace" moved to menu bar
+	- For the diffusion fit: instead of the number of bins, the bin size of the jump distance histogram has to be specified
+	- Added "number of jumps" and "number of angles" to statistics overview
+
+	Bug fixes:
+	- Fixed wrong calculation of tracklengths when displayed in seconds: Changed tracklength in seconds from "length = amount of frames * framecycletime" to "length = (amount of frames -1) * framecycletime"
+
+
+
+%%%%%%%%% Export tracks %%%%%%%%%%
+
+	- Added possibility to export one file per sub-region and file
+	- Added possibility to explicitly export results for each sub-region
+	- ROI coordinates, ROI size, trackLengths and jumpDistances are now in the units µm and seconds
+
+
+%%%%%%%%% Track explorer:  %%%%%%%%%%
+
+	Major new features:
+	- Data is automatically updated when user changes movie in main ui, so the track explorer does not have to be reopened everytime a movie is changed
+	- Added scale bar and time stamp
+	- Added possibility to create .avi movies
+
+
+	Minor improvements:
+	- Customizable track color
+	- Checkbox "plot confinement radius" to show/not show circle of confinement radius
+	- gap frames are now indicated below the track plot and inside the spot intensity plot
+
+	Bug fixes:
+	- fixed four minor bugs
+
+%%%%%%%%% GRID: %%%%%%%%%%
+
+	Major new features:
+	- GRID can now be used  without installing the toolbox
+	- Added option to resample multiple files at "Tools" -> "Perform resampling on multiple files"
+	- Added tool "Resampling comparer" which can be accessed via: Menu bar -> Resampling -> "Compare resampling results".
+	- Resampling viewer and resampling comparer: Added possibility to change axis limits and font size: Right click on the axis -> "Adjust axis limits and font size"
+	- Resampling viewer: Added possibility to manually set integration borders: Right click on axis -> "Set integration borders"
+	- Resampling viewer: Average binding rate can now be shown either in 1/s or in seconds: Right click on axis -> "Show mean binding time in seconds or 1/second"
+
+
+	Minor improvements:
+	- GRID now remembers the last used folder
+	- Added possibility to select subregion when loading a batch file
+	- Resampling is now only saved to a specified folder an not automatically into the current folder
+	- Export: Results can now be saved .mat file or matlab workspace
+	- Export: Added "data" and "fit curves" to the exported data
+	- Resampling viewer: Integration borders stay when switching between event and state spectrum
+	- Resampling viewer: Figure name of resampling viewer now contains the filename
+
+	Bug fixes:
+	- Resampling viewer: Fixed a bug, where average rate showed NaN if one resampling had no rate within the given integration borders
+
+%%%%%%%%% Movie splitter: %%%%%%%%%%
+
+	- Add, delete and save presets to a SamplePresetMovieSplitter.txt file
+
+
+
+---1.5.2 (Jonas)------------------------------------------------------------------------------------------
+- added Movie Splitter presets.
+- added Time stamp. See Tools --> Add Timestamp
+- added Track Export (in the top bar) and Track Settings in Tools --> Track explorer
+- added function to export all movies spot statistics of the current batch to a single continous array in the Workspace under Analysis --> Spot statistics 
+- moved Scalebar button to Tools --> Add Scalebar
+
+---1.5.1 (Jonas)-------------------------------------------------------------------------------------------
+- fixed "Remove jump over gap frames" not showing in Tracking data analysis tool > Diffusion parameter

@@ -1,0 +1,99 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{amsmath}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{hyperref}
+\usepackage{doi}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{upgreek}
+\usepackage{longtable}
+\usepackage{array}
+%\usepackage[singlelinecheck=off]{caption}
+\graphicspath{{SI_figures/}}
+\usepackage{vbSPTdoc}
+
+%\renewcommand{\citet}[1]{\cite{#}}
+%% these lines makes it possible to cross-reference items in the main
+%% text by commands like \ref{MT:label}
+%\usepackage{xr}
+%\externaldocument[MT:]{Manuscript}
+
+
+\title{vbSPT (Variational Bayes for Single Particle Tracking) -- User-guide and Documentation}
+
+\author{Fredrik Persson\footnote{freddie.persson@gmail.com ; bmelinden@gmail.com},
+Martin Linden$^*$, Cecilia Unoson, and Johan Elf}
+\date{\today}
+
+\begin{document}
+
+\maketitle 
+
+%\section{Methods}
+%\section*{About the software}
+%vbSPT software is distributed under the GPL license \ldots
+\noindent vbSPT is a program suite for analysis of single particle diffusion
+trajectories, where the diffusion constants switch randomly according
+to a discrete Markov process. The program runs on Matlab, but uses
+compiled C-code to speed up the most computer intensive loops.  The
+latest version of the software as well as a forum for discussion and
+questions can be found at \texttt{sourceforge.net/projects/vbspt/}.\medskip\\
+
+\noindent Copyright \copyright \  2013 Martin Lind\'en, Fredrik Persson, and
+Johan Elf.\medskip\\
+ 
+\noindent This program is free software: you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or any later version.  This program is distributed in the
+hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE. See the GNU General Public License for more details. You
+should have received a copy of the GNU General Public License along
+with this program. If not, see http://www.gnu.org/licenses/.\medskip\\
+
+\noindent If you use it for academic research, please cite the
+original article in your work:\medskip\\
+\noindent Fredrik Persson, Martin Lind\'en, Cecilia Unoson, and Johan
+Elf, \emph{Extracting intracellular diffusive states and transition
+  rates from single molecule tracking data}, Nature Methods 10 265-269
+(2013). doi:10.1038/nmeth.2367 \medskip\\
+
+\noindent The vbSPT suite also includes code developed by Martin
+Lind\'en, and by Jan-Willem van de Meent. See individual files for
+copyright and detailed origin.
+
+\tableofcontents
+\addcontentsline{toc}{section}{Contents}
+\newpage
+\section{vbSPT software user manual}
+\label{Sec:userManual}
+\input{vbSPT_userManual.tex}
+\newpage
+\section{Tables of variables}
+\input{vbSPT_tables.tex}
+\newpage
+\section{Introduction to the variational algorithm for single particle tracking}
+\label{Sec:statistics}
+\input{vbSPT_statistics.tex}
+%\newpage
+\section{Derivation of the variational algorithm}
+\label{Sec:derivation}
+\input{vbSPT_derivation.tex}
+%\section{(Old) derivation of the variational algorithm}
+%\input{vbSPT_derivation_old.tex}
+
+%\section{Controls}
+%\input{SI_controls.tex}
+% 
+%\subsection{Sample preparation}
+%\input{SI_samplePrep.tex}
+
+
+
+
+\newpage
+\bibliographystyle{unsrtnat} 
+\bibliography{VB-HMM}
+\addcontentsline{toc}{section}{References}
+\end{document}

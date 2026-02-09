@@ -1,0 +1,627 @@
+We now derive the core elements of the variational algorithm for
+single trajectories, following earlier Variational Bayesian/Ensemble
+learning treatments of
+HMMs\cite{Bronson2010,Mackay1997,Beal2003}.  To make it
+easier to choose prior distributions however, we reparameterize the
+transition matrix to separate out dwell time distributions, and write
+\begin{equation}\label{eq:aBdef}
+A_{ij}=\delta_{ij}(1-a_i)+(1-\delta_{ij})a_iB_{ij}=
+(1-a_i)^{\delta_{ij}}a_i^{1-\delta_{ij}}B_{ij}^{1-\delta_{ij}},
+\end{equation}
+with constraints
+\begin{equation}
+0\le a_j\le 1,\quad B_{ii}=0,\quad \sum_{j\ne i}B_{ij}=1,
+\end{equation}
+that is, $a_i=p(s_{t+1}\ne i|s_t=i)$ is the probability to exit state $i$, and
+$B_{ij}=p(s_{t+1}=j|s_t=i,i\ne j)$ is a matrix of jump probabilities,
+conditional on a jump actually occurring.
+
+
+To start with, we will combine the model
+Eqs. (\ref{eq:efactor1}-\ref{xmodel1}) with the new parameterization,
+\begin{multline}
+\label{eq:efactor1b}
+p(\x_{1:T},s_{1:T-1},\vec{\gamma},\matris{A},\vec\pi|N)\\
+=p(\x_{1:T}|s_{1:T-1},\vec{\gamma})
+p(s_{1:T-1}|\matris{B},\vec{a},\vec\pi)
+p(\vec{\gamma}|N)p(\matris{B}|N)p(\vec{a}|N)p(\vec\pi|N),
+\end{multline}
+\begin{align}
+\label{smodel1b}
+  p(s_{1:T-1}|\matris{B},\vec a,\vec{\pi})=&
+  \prod_{m=1}^N\pi_m^{\delta_{m,s_1}}
+  \prod_{t=1}^{T-1}\prod_{k,j=1}^N 
+  \left((1-a_k)^{\delta_{kj}}a_k^{1-\delta_{kj}}
+  B_{kj}^{1-\delta_{kj}}\right)^{\delta_{k,s_t}\delta_{j,s_{t+1}}},\\
+    \label{xmodel1b}
+    p(\x_{1:T}|s_{1:T-1},\vec\gamma)=&
+    \prod_{t=1}^{T-1}\prod_{k=1}^N\left(
+    \frac{\gamma_k}{\pi}\right)^{\frac d2\delta_{k,s_t}}
+    e^{-\delta_{k,s_t}\gamma_k(\x_{t+1}-\x_t)^2}. 
+\end{align}
+and feed it into the mean-field machinery of Eqs.~\eqref{eq:update1}
+and \eqref{eq:update2} (with
+$\theta=\vec{\gamma},\matris{B},\vec{a},\vec{\pi}$,),
+\begin{align}
+  \ln q(\theta)=&-\ln Z_\theta+\ln p(\theta|N)
+  +\mean{\ln p(x,s|\theta,N)}_{q(s)},\tag{\ref{eq:update1}}\\
+  \ln q(s)=&-\ln Z_s+\mean{\ln p(x,s|\theta,N)}_{q(\theta)}.
+\tag{\ref{eq:update2}}
+\end{align}
+which also includes choosing functional forms for the prior
+distributions that make the averages tractable. In the next
+subsections, we first derive the parameter distributions and the
+update rule that constitute the M-step of the EM iterations, then go on
+to the distribution of hidden states and its update rule (the E-step),
+and finally describe how to compute the lower bound $F$ after a
+completed E-step.
+
+\subsection{Parameters}
+We have four types of parameters,
+$\theta=(\vec\pi,\matris{B},\vec a,\vec \gamma)$, and it will turn out that
+if we choose priors that factorize in a clever way,
+\begin{equation}\label{pfactorization}
+p(\theta|N)=p(\vec{\gamma},\vec{\pi},\matris{A}|N)
+=p(\vec\pi|N)\prod_jp(\gamma_j|N)p(B_{j,:}|N)p(a_j|N),
+\end{equation}
+where $B_{j,:}$ means row $j$ of $\matris{B}$, then the variational
+distributions factorize in the same way, which simplifies the
+computations. Hence, if we substitute factorized priors of this form,
+plus Eqs.~\eqref{smodel1b} and \eqref{xmodel1b}, into the parameter
+distribution equation, Eq.~\eqref{eq:update1}, we get the following
+variational distribution for the parameters:
+\begin{multline}\label{Maverage}
+  \ln q(\vec{\pi},\matris{B},\vec a,\vec{\gamma})=
+  -\ln Z_\theta  
+    +\ln p(\matris{B}|N)+\ln p(\vec{a}|N)+\ln p(\vec{\pi}|N)\\
+    +\mean{\ln p(s_{1:T-1}|\matris{B},\vec a,\vec{\pi)}}_{q(s_{1:T-1})}
+  +\ln p(\gamma|N)+\mean{\ln p(\x_{1:T}|s_{1:T-1},\vec{\gamma})}_{q(s_{1:T-1})}\\
+  =-\ln Z_\theta 
+  +\sum_{j=1}^N\Big[\mean{\delta_{j,s_1}}_{q(s_{1:T-1})}\ln\pi_j+\ln p(\pi_j)\Big]\\
+  +\sum_{j=1}^N\sum_{t=1}^{T-2}\bigg(
+  \ln p(B_{j,:})+\sum_{k=1}^N(1-\delta_{jk})
+  \mean{\delta_{j,s_t}\delta_{k,s_{t+1}}}_{q(s_{1:T-1})}\ln B_{jk}
+    \bigg)\\
+  +\sum_{j=1}^N\sum_{t=1}^{T-2}\bigg(\ln p(a_j)
+  +\sum_{k=1}^N\mean{\delta_{j,s_t}\delta_{k,s_{t+1}}}_{q(s_{1:T-1})}
+  \Big((1-\delta_{jk})\ln a_j+\delta_{jk}\ln (1-a_j)\Big)
+    \bigg)\\%  -\ln p(\x_1)\\
+  +\sum_{j=1}^N\Bigg[\sum_{t=1}^{T-1}
+  \bigg(
+  \frac d2\mean{\delta_{j,s_t}}_{q(s_{1:T-1})}\ln\frac{\gamma_j}{\pi}
+  -\mean{\delta_{j,s_t}}_{q(s_{1:T-1})}(\x_{t+1}-\x_t)^2\gamma_j
+  \bigg)+\ln p(\gamma_j)\Bigg].
+\end{multline}
+From this, we can read out the functional form of the variational
+distribution, which factorize in the same was as the prior. We choose
+conjugate priors\cite{Mackay1997,Beal2003}, which enables a simple
+interpretation of the prior distribution in terms of fictitious
+'pseudo'-observations.
+
+\paragraph{Initial state and transition rates:}
+Following earlier
+work\cite{Mackay1997,Beal2003,Bronson2009,Okamoto2012,Persson2013}, we
+choose Dirichlet (a multivariate version of the beta
+distribution\cite{wiki:dirichlet}) priors for the initial state
+distribution and for each row of the transition matrix $\matris{B}$,
+and beta distributions for the elements of $\vec a$. This makes the
+variational distributions Dirichlet and beta distributions as well
+(they are their own conjugates). The Dirichlet density function, in
+this case for $\vec\pi$, is
+\begin{equation}\label{eq:p0pi}
+        q(\vec\pi)=\Dir(\vec\pi|\vec{w}^{(\vec{\pi})})=\frac{1}{B(\vec
+        w^{(\vec\pi)})}\prod_j \pi_j^{(w_j^{(\vec\pi)}-1)},
+\end{equation}
+with the constraints $0\le \pi_j\le1$ and $\sum_j\pi_j=1$, and
+normalization constant $B(\vec
+w^{(\vec\pi)})=\prod_j\Gamma(w_j^{(\vec\pi)})/\Gamma(\sum_kw_k^{(\vec\pi)})$\cite{wiki:dirichlet},
+and the beta distribution is the special case of two components,
+\begin{equation}
+\beta(x|u,v)=\frac{\Gamma(u+v)}{\Gamma(u)\Gamma(v)}x^{u-1}(1-x)^{v-1}.
+\end{equation}
+Inspection of Eq.~\eqref{Maverage} reveals that
+\begin{equation}\label{VBM_pi}
+  q(\vec{\pi})=\Dir(\vec{\pi}|\vec{w}^{(\vec{\pi})}),\quad
+w_j^{(\vec{\pi})}=\tilde
+w_j^{(\vec{\pi})}+\mean{\delta_{j,s_1}}_{q(s)},
+\end{equation}
+\begin{equation}\label{VBM_B}
+  q(\matris{B})=\prod_j
+  \Dir(B_{j,:}|w_{j,:}^{(\matris{B})}),\quad
+w_{jk}^{(\matris{B})}=\tilde w_{jk}^{(\matris{B})}
+  +\sum_{t=1}^{T-2}\mean{\delta_{j,s_t}\delta_{k,s_{t+1}}}_{q(s)},\; (k\ne j),
+\end{equation}
+\begin{align}
+  q(\vec{a})=&\prod_j \beta(a_j|w_{j1}^{(\vec{a})},w_{j2}^{(\vec{a})}),&
+  w_{j1}^{(\vec{a})}=&\tilde w_{j1}^{(\vec{a})}
+  +\sum_{t=1}^{T-2}\mean{\delta_{j,s_t}(1-\delta_{j,s_{t+1}})}_{q(s)},\nonumber\\
+  &&  
+w_{j2}^{(\vec{a})}=&\tilde w_{j2}^{(\vec{a})}
+  +\sum_{t=1}^{T-2}\mean{\delta_{j,s_t}\delta_{j,s_{t+1}}}_{q(s)},
+\label{VBM_a}
+\end{align}
+with where $\tilde w_j^{(\vec{\pi})}$, $\tilde w_{jk}^{(\matris{B})}$,
+and $\tilde w_{jk}^{(\vec{a})}$ are pseudo-counts in the prior
+distributions.  The total number of pseudo-counts (for each
+distribution) is called the prior strength. The following average and
+mode values will be needed:
+\begin{align}
+  \mean{\ln \pi_i}_{q(\vec{\pi})}=&\psi(w_i^{(\vec{\pi})})-\psi(w_0^{(\vec{\pi})}),
+  &w_0^{(\vec{\pi})}=&\sum_{i=1}^Nw_i^{(\vec{\pi})},\label{lnpiaverage}\\
+  \mean{\ln a_j}_{q(\vec{a})}=&\psi(w_{j1}^{(\vec{a})})-\psi(w_{j0}^{(\vec{a})}),&
+  w_{j0}^{(\vec{a})}=&w_{j1}^{(\vec{a})}+w_{j2}^{(\vec{a})},\\
+  \mean{\ln (1-a_j)}_{q(\vec{a})}=&\psi(w_{j2}^{(\vec{a})})-\psi(w_{j0}^{(\vec{a})}),\\
+  \mean{\ln B_{jk}}_{q(\matris{B})}=&\psi(w_{jk}^{(\matris{B})})
+    -\psi(w_{j0}^{(\matris{B})}),&
+  w_{j0}^{(\matris{B})}=&\sum_{k\ne j}w_{jk}^{(\matris{B})},
+\end{align}
+where $\psi$ is the digamma function.  Some more expectation
+($\mean{\cdot}_{\ldots}$) and mode ($^*_{\ldots}$) values will be
+useful for parameter inference:
+\begin{align}
+  \pi^*_{i\;q(\vec\pi)}=&\frac{w_i^{(\vec\pi)}-1}{w_0^{(\vec\pi)}-N}, &
+  \mean{\pi_i}_{q(\vec{\pi})}=&\frac{w_i^{(\vec\pi)}}{w_0^{(\vec\pi)}}, \\
+  \Var[\pi_i]_{q(\vec{\pi})}=&
+  \frac{w_i^{(\vec\pi)}(w_0^{(\vec\pi)}-w_i^{(\vec\pi)})}{
+    (w_0^{(\vec\pi)})^2(w_0^{(\vec\pi)}+1)},\\
+  a^*_{i\;q(\vec a)}=&\frac{w_{i1}^{(\vec{a})}-1}{w_{i0}^{(\vec{a})}-2}, &
+  \mean{a_i}_{q(\vec{a})}=&\frac{w_{i1}^{(\vec{a})}}{w_{i0}^{(\vec{a})}},\\
+  (1-a_i)^*_{q(\vec{a})}=&\frac{w_{i2}^{(\vec{a})}-1}{w_{i0}^{(\vec{a})}-2}, &
+  \mean{1-a_i}_{q(\vec{a})}=&\frac{w_{i2}^{(\vec{a})}}{w_{i0}^{(\vec{a})}},\\
+  \Var[a_j]=&\frac{w_{j1}^{(a)}w_{j2}^{(a)}}{(w_{j0}^{(a)})^2(1+w_{j1}^{(a)})},&
+\Var[1-a_j]=&\Var[a_j]\\
+  B^*_{jk\;q(\matris{B})}=&\frac{w_{jk}^{(\matris{B})}-1}{w_{j0}^{(\matris{B})}-N+1}&
+  \mean{B_{jk}}_{q(\matris{B})}=&\frac{w_{jk}^{(\matris{B})}}{w_{j0}^{(\matris{B})}},\\
+\Var[B_{jk}]=&
+\frac{w_{jk}^{(\matris{B})}(w_{j0}^{(\matris{B})}-w_{jk}^{(\matris{B})})}{
+(w_{j0}^{(\matris{B})})^2(1+w_{j0}^{(\matris{B})})},&
+\mean{B_{jk}^2}=&\frac{w_{jk}^{(\matris{B})}(1+w_{jk}^{(\matris{B})})}{
+        w_{j0}^{(\matris{B})}(1+w_{j0}^{(\matris{B})})},\\
+\mean{A_{jj}}_{q(\vec{a})q(\matris{B})}=&
+\mean{1-a_j}=\frac{w_{j2}^{(\vec{a})}}{w_{j0}^{(\vec{a})}},&
+\mean{A_{jk}}_{q(\vec{a})q(\matris{B})}=&
+\frac{w_{j1}^{(\vec{a})}w_{jk}^{(\matris{B})}}{w_{j0}^{(\vec{a})}w_{j0}^{(\matris{B})}}.\label{Amean}
+\end{align}
+\begin{align}
+\Var[A_{jj}]=&\Var[1-a_j]=\Var[a_j],\nonumber\\
+\Var[A_{jk}]=&\mean{a_j^2B_{jk}^2}-\mean{a_jB_{jk}}^2
+        =\Var[a_j]\mean{B_{jk}^2}+\mean{a_j}^2\Var[B_{jk}].\label{Avar}
+\end{align}
+Note that the transition counts
+for $\vec a$ and $\matris{B}$ are related via
+\begin{equation}
+w_{j0}^{(\matris{B})}=w_{j2}^{(\vec{a})}-\tilde w_{j2}^{(\vec{a})}+\sum_{k\ne j}\tilde w_{jk}^{(\matris{B})},
+\end{equation}
+and would be equal (and moments of $A_{jk}$ simpler) if the priors
+were chosen such that $\sum_{k\ne j}\tilde
+w_{jk}^{(\matris{B})}=\tilde w_{j1}^{(\vec{a})}$. The point of
+reparameterizing $A_{ij}$ however, is to be able to choose priors such
+as this is not the case. Finally, mean dwell times (in units of
+$\Delta t$) is $\tau_j=a_j^{-1}$. This gives the variational density
+function
+\begin{equation}
+q(\tau_j)=q(a_j(\tau_j))\left|\frac{da_j}{d\tau_j}\right|
+=\frac{\Gamma(w_{j1}^{(\vec{a})})\Gamma(w_{j2}^{(\vec{a})})}{\Gamma(w_{j0}^{(\vec{a})})}
+\tau_j^{-w_{j0}^{(\vec{a})}}(\tau_j-1)^{w_{j2}^{(\vec{a})}-1},
+\quad \tau_j\ge 1,
+\end{equation}
+which means that
+\begin{align}
+\mean{\tau_j}=&\mean{a_j^{-1}}=
+\frac{w_{j0}^{(\vec{a})}}{w_{j1}^{(\vec{a})}}=\frac{1}{\mean{a_j}},\label{eq:dwellmean}\\
+\tau_j^*=&\frac{w_{j0}^{(\vec{a})}}{1+w_{j1}^{(\vec{a})}},\label{eq:dwellmode}\\
+\mean{\tau_j^2}=&\mean{a_j^{-2}}_{q(\vec{a})}=
+\mean{\tau_j}\frac{w_{j0}^{(\vec{a})}-1}{w_{j1}^{(\vec{a})}-1}
+=\mean{\tau_j}^2\frac{w_{j0}^{(\vec{a})}-1}{w_{j0}^{(\vec{a})}-\mean{\tau_j}},\\
+\Var(\tau_j)=&
+\mean{\tau_j^2}-\mean{\tau_j}^2=
+\frac{\mean{\tau_j}^2(\mean{\tau_j}-1)}{w_{j0}^{(\vec{a})}-\mean{\tau_j}}.
+\end{align}
+or
+\begin{align}
+w_{j1}^{(\vec{a})}=&\frac{w_{j0}^{(\vec{a})}}{\mean{\tau_j}}
+=1+\frac{\mean{\tau_j}(\mean{\tau_j}-1)}{\Var(\tau_j)},\nonumber\\
+w_{j2}^{(\vec{a})}=&w_{j0}^{(\vec{a})}\frac{\mean{\tau_j}-1}{\mean{\tau_j}}
+=(\mean{\tau_j}-1)w_{j1}^{(\vec{a})}.\label{eq:wjka}
+\end{align}
+
+
+
+
+\paragraph{Diffusion constants:}
+The terms involving $\gamma_j$ in \Eq{Maverage} are
+\begin{equation}
+  \ln q(\gamma_j)=\mathrm{const.}
+  +\ln p(\gamma_j|N)+\sum_{t=1}^{T-1}
+  \frac d2\mean{\delta_{j,s_t}}\ln\frac{\gamma_j}{\pi}
+  -\mean{\delta_{j,s_t}}(\x_{t+1}-\x_t)^2\gamma_j.
+\end{equation}
+Hence, if we choose the prior to be a gamma-distribution, then the
+variational distribution will be so as well, and we get
+\begin{equation}
+  q(\gamma_j)=\frac{c_j^{n_j}}{\Gamma(n_j)}\gamma_j^{n_j-1}e^{-c_j\gamma_j},
+\end{equation}
+with
+\begin{equation}\label{VBM_gamma}
+  n_j=\tilde n_j+\frac d2\sum_{t=1}^{T-1}\mean{\delta_{j,s_t}},\quad
+  c_j=\tilde c_j+\sum_{t=1}^{T-1}\mean{\delta_{j,s_t}}(\x_{t+1}-\x_t)^2,
+\end{equation}
+and $\tilde n_j$, $\tilde c_j$ being prior parameters. Again, we will
+need some averages with respect to $q(\gamma_j)$:
+\begin{equation}\label{gammaprop}
+  \mean{\gamma_j}_{q(\gamma_j)}=\frac{n_j}{c_j},\quad
+  \mean{\ln\gamma_j}_{q(\gamma_j)}=\psi(n_j)-\ln c_j,\quad  
+  \Var[\gamma_j]_{q(\gamma_j)}=\frac{n_j}{c_j^2},
+\end{equation}
+and we can also transform back to the diffusion constant
+$D_j=(4\gamma_j\Delta t)^{-1}$, whose distribution is inverse gamma,
+\begin{equation}\label{eq:qD}
+  q(D_j)=\frac{\beta_j^{n_j}}{\Gamma(n_j)}D_j^{-(n_j+1)}e^{-\beta_j/D_j}.
+  \quad \beta_j=c_j/(4\Delta t),
+\end{equation}
+This means that
+\begin{align}
+  D^*_{j\;q(D_j)}=&\frac{c}{4(n_j+1)\Delta t},\\
+  \mean{D_j}_{q(D_j)}=&\frac{c}{4(n_j-1)\Delta t},\\
+  \std[D_j]_{q(D_j)} =&\frac{\mean{D_j}}{\sqrt{n_j-2}}.
+\end{align}
+The mean value and standard deviation are only defined if $n_j>1,2$
+respectively.
+
+The M-step of the iterations, Eq.~\eqref{eq:update1}, thus consists of
+updating the variational parameter distributions according to
+equations (\ref{VBM_pi}-\ref{VBM_a}) and \eqref{VBM_gamma}. These
+equations in turn contain certain averages of the hidden state
+distribution $q(s_{1:T-1})$. We now go on and derive the variational
+distribution for the hidden state and the E-step, to compute these
+averages.
+\subsection{Priors}
+Directly specifying the parameters of the conjugate priors -- $\tilde
+c_j$, $\tilde n_j$, $\tilde w_j^{(\vec{\pi})}$, $\tilde
+w_j^{(\vec{a})}$ and $\tilde w_{jk}^{(\matris{B})}$ -- is often an
+unintuitive way to express ones prior beliefs. This version of the
+code therefore offers different alternatives in terms of, e.g.,
+moments of the prior distributions. Different ways to do this can be
+chosen via the \texttt{prior\_type\_X} variables in the runinput
+files, and more alternatives can be added by
+modifying \texttt{VB3\_createPrior.m}. See also
+table \ref{Tab:runinput} for details.
+
+\subsection{Hidden states}
+Collecting the terms in Eqs. \eqref{xmodel1b} and \eqref{smodel1b} that
+depend on the hidden states, we get
+\begin{multline}\label{VBE_qs}
+ \ln q(s_{1:T-1})=
+-\ln Z_s+\mean{\ln p(s_{1:T-1}|\matris{B},\vec{a},\vec{\pi)}}_{q(\matris{A})q(\vec a)q(\vec\pi)}
++\mean{\ln p(\x_{1:T}|s_{1:T-1},\vec{\gamma})}_{q(\vec\gamma)}\\
+=-\ln Z_s +\sum_{t=1}^{T-1}\ln H_{t,s_t}+\sum_{t=1}^{T-2}\ln Q_{s_t,s_{t+1}}.
+\end{multline}
+This looks a like the Hamiltonian of a 1-dimensional spin model in
+statistical physics, with external field $\ln H_{t,j}$ and
+nearest-neighbor coupling $\ln Q_{jk}$ given by
+\begin{align}
+  \ln H_{t,j}=& \delta_{1,t}\underbrace{
+    \big[\psi(w_j^{(\vec\pi)})-\psi(w_0^{(\vec\pi)})\big]
+  }_{\text{initial state distribution}}
+  +\frac d2\big(\psi(n_j)-\ln \pi c_j\big)-\frac{n_j}{c_j}(\x_{t+1}-\x_t)^2,
+  \\
+  \ln Q_{jk}=&\left\{
+  \begin{array}{ll}
+  \psi(w_{j2}^{(\vec{a})})-\psi(w_{j0}^{(\vec{a})}),&(k=j)\\
+  \psi(w_{jk}^{(\matris{B})})-\psi(w_{j0}^{(\matris{B})})
+  +
+  \psi(w_{j1}^{(\vec{a})})-\psi(w_{j0}^{(\vec{a})})
+  ,&(k \ne j)
+  \end{array}\right.
+\end{align}
+Further simplifications in $Q_{jk}$ would obtain if the $\vec a$ and
+$\matris{B}$ priors are compatible, since $\tilde
+w_{j0}^{(\matris{B})}\equiv \sum_{k\ne j}\tilde
+w_{jk}^{(\matris{B})}= \tilde
+w_{j1}^{(\vec{a})} \Rightarrow \psi(w_{j0}^{(\matris{B})})
+-\psi(w_{j1}^{(\vec{a})})=0$, which would give results equivalent to
+the earlier version of vbSPT without the reparameterization in
+Eq.~\eqref{eq:aBdef}.
+
+We will need a couple of expectation values to feed back in the next
+iteration of the parameter distributions, namely
+\begin{equation}
+  \mean{\delta_{j,s_t}}_{q(s)}=p(s_t=j),\quad
+  \mean{\delta_{j,s_t}\delta_{k,s_{t+1}}}_{q(s)}=p(s_{t+1}=k|s_t=j).
+\end{equation}
+These can be computed by a dynamic programming
+trick\cite{Bishop2006,Mackay1997,Beal2003}, known in the HMM context
+as the forward-backward or Baum-Welch
+algorithm\cite{Rabiner1989,Baum1972}. As a side effect, one also
+obtains the normalization constant $Z_s$, which will be needed below
+when computing the lower bound $F$.
+
+\subsection{Multiple trajectories:}
+To analyze many trajectories, one tries to optimize the sum of the
+lower bounds for each trajectory with a single model. For the
+EM-iterations, this means that the parameters in the variational
+distributions get contributions from each trajectory that are just
+summed up, \textit{i.e.} averages over the hidden state distribution
+gets extended with a summation over $M$ trajectories as
+well, \textit{e.g.} in Eq.~\eqref{VBM_B},
+\begin{equation}
+w_{jk}^{(\matris{B})}=\tilde w_{jk}^{(\matris{B})}
+  +\sum_{m=1}^M\sum_{t=1}^{T_m-2}\mean{\delta_{j,s^m_t}\delta_{k,s^m_{t+1}}}_{q(s)},
+\end{equation}
+where $T_m$ is the number of positions in trajectory $m$. We get a
+variational distribution over the hidden states in each trajectory,
+where the coupling constants $Q_{jk}$ and external fields $H_{tj}$ are
+given by the same parameter distributions (but differ in the
+contributions from data).
+
+
+\subsection{Lower bound}
+The lower bound $F$ can be computed just after the
+E-step. Substituting our variational ansatz
+$q(\theta,s)=q(\theta)q(s)$ into our general expression for $F$,
+Eq.~\eqref{eq:F1}, we can exploit the fact that $q(s)$ and $q(\theta)$
+are normalized probability distributions, and rewrite it in the form
+\begin{multline}
+F[q(\theta)q(s),x]=\int d\theta\sum_s \Big[ q(\theta)q(s) \ln
+    p(x,s|\theta,N)p(\theta|N) -q(\theta)q(s) \ln q(\theta)q(s) \Big]\\
+=\sum_sq(s)\Big[\mean{\ln p(x,s|\theta,N)}_{q(\theta)} -\ln q(s)\Big]
++\int d\theta q(\theta)\Big[\ln p(\theta|N)-\ln q(\theta)\Big].
+\end{multline}
+Just after the E-step however, $q(s)$ is given by
+Eq.~\eqref{eq:update2}, which substituted in the above expressions
+leads to cancellations, leaving us with
+\begin{equation}
+F[q(\theta)q(s),x]=\ln Z_s-\int d\theta q(\theta)\ln\frac{q(\theta)}{p(\theta|N)}.
+\end{equation}
+The first term is just the normalization constant in
+Eq.~\eqref{eq:update2}, which comes out as a by-product of the
+forward-backward algorithm. The second term is the negative
+Kullback-Leibler divergence of the variational parameter distribution
+with respect to the prior. In our case, this distribution factorizes
+as in Eq.~\eqref{pfactorization}, and we get a sum of separate and
+tractable contributions,
+\begin{multline}
+\int d\theta q(\theta)\ln\frac{q(\theta)}{p(\theta|N)}
+     =\int d\vec\pi q(\vec\pi)\ln\frac{q(\vec\pi)}{p(\vec\pi|N)}
+     +\sum_j\int da_j q(a_j)\ln\frac{q(a_j)}{p(a_j|N)}\\
+     +\sum_j\int dB_{j,:} q(B_{j,:})\ln\frac{q(B_{j,:})}{p(B_{j,:}|N)}
+     +\sum_j\int d\gamma_j q(\gamma_j)\ln\frac{q(\gamma_j)}{p(\gamma_j|N)}.
+\end{multline}
+For the initial state distribution, we get
+\begin{multline}
+  \int d\vec{\pi} q(\vec{\pi}) \ln\frac{q(\vec{\pi})}{p(\vec{\pi}|N)}
+  =\mean{\ln\left(\frac{\Gamma(w_0^{(\vec{\pi})})}{\Gamma(\tilde w_0^{(\vec{\pi})})}
+    \prod_{j=1}^N\frac{\Gamma(\tilde w_j^{(\vec{\pi})})}{\Gamma(w_j^{(\vec{\pi})})}
+    \pi_j^{w_j^{(\vec{\pi})}-\tilde w_j^{(\vec{\pi})}}\right)}_{q(\vec{\pi})}\\
+%  =\ln\frac{\Gamma(w_0^{(\vec{\pi})})}{\Gamma(\tilde w_0^{(\vec{\pi})})}
+%  +\sum_{j=1}^N\left[\ln\frac{\Gamma(\tilde w_j^{(\vec{\pi})})}{\Gamma(w_j^{(\vec{\pi})})}
+%    +(w_j^{(\vec{\pi})}-\tilde w_j^{(\vec{\pi})})
+%    \big(\psi(w_j^{(\vec{\pi})})-\psi(w_0^{(\vec{\pi})})\big)\right]\\
+  =\ln\frac{\Gamma(w_0^{(\vec{\pi})})}{\Gamma(\tilde w_0^{(\vec{\pi})})}
+  -(w_0^{(\vec\pi)}-\tilde w_0^{(\vec\pi)})\psi(w_0^{(\vec{\pi})})
+  -\sum_{j=1}^N\left[\ln\frac{\Gamma(w_j^{(\vec{\pi})})}{\Gamma(\tilde w_j^{(\vec{\pi})})}
+    -(w_j^{(\vec{\pi})}-\tilde w_j^{(\vec{\pi})})\psi(w_j^{(\vec{\pi})})\right],
+\end{multline}
+where we used Eq.~\eqref{lnpiaverage} for
+$\mean{\ln \pi_i}_{q(\vec{\pi})}$. Similarly, the dwell time variable
+$a_j$ contributes
+\begin{multline}
+  \int d\vec{ a} q(\vec{ a}) \ln\frac{q(\vec{ a})}{p(\vec{ a}|N)}
+  =\sum_{j=1}^N
+  \mean{\ln\left(\frac{\Gamma(w_{j0}^{(\vec{ a})})}{\Gamma(\tilde w_{j0}^{(\vec{ a})})}
+    \prod_{k=1}^2\frac{\Gamma(\tilde w_{jk}^{(\vec{ a})})}{\Gamma(w_{jk}^{(\vec{ a})})}
+     a_j^{w_{jk}^{(\vec{ a})}-\tilde w_{jk}^{(\vec{ a})}}\right)}_{q(\vec{ a})}\\
+  =\sum_{j=1}^N\left\{
+  \ln\frac{\Gamma(w_{j0}^{(\vec{ a})})}{\Gamma(\tilde w_{j0}^{(\vec{ a})})}
+  -(w_{j0}^{(\vec a)}-\tilde w_{j0}^{(\vec a)})\psi(w_{j0}^{(\vec{ a})})
+  -\sum_{k=1}^2\left[\ln\frac{\Gamma(w_{jk}^{(\vec{ a})})}{\Gamma(\tilde w_{jk}^{(\vec{ a})})}
+    -(w_{jk}^{(\vec{ a})}-\tilde w_{jk}^{(\vec{ a})})\psi(w_{jk}^{(\vec{ a})})\right]\right\}.
+\end{multline}
+Note that for an $N=1$ state model, there is no hidden state dynamics,
+and hence the contributions for both $\vec{a}$ and $\matris{B}$ should
+be omitted. (The contribution from $\vec{\pi}$ does indeed give zero
+in the $N=1$ case; but this is not obviously so for $\vec{a}$ and
+$\matris{B}$. More algebra might be needed here).
+
+The jump matrix rows are also Dirichlet distributed, and each row
+contributes
+\begin{multline}
+  \int dB_{j,:} q(B_{j,:}) \ln\frac{q(B_{j,:})}{p(B_{j,:}|N)}
+  =\mean{\ln\left(\frac{\Gamma(w_{j0}^{(\matris{B})})}{\Gamma(\tilde w_{j0}^{(\matris{B})})}
+    \prod_{k=1,k\ne j}^N\frac{\Gamma(\tilde w_{jk}^{(\matris{B})})}{\Gamma(w_{jk}^{(\matris{B})})}
+    B_{jk}^{w_{jk}^{(\matris{B})}-\tilde w_{jk}^{(\matris{B})}}\right)}_{q(\matris{B})}\\
+%  =\ln\frac{\Gamma(w_{j0}^{(\matris{B})})}{\Gamma(\tilde w_{j0}^{(\matris{B})})}
+%  +\sum_{k=1,k\ne j}^N\left[\ln\frac{\Gamma(\tilde w_{jk}^{(\matris{B})})}{\Gamma(w_{jk}^{(\matris{B})})}
+%    +(w_{jk}^{(\matris{B})}-\tilde w_{jk}^{(\matris{B})})
+%    \big(\psi(w_{jk}^{(\matris{B})})-\psi(w_{j0}^{(\matris{B})})\big)
+%\right]\\
+  =\ln\frac{\Gamma(w_{j0}^{(\matris{B})})}{\Gamma(\tilde w_{j0}^{(\matris{B})})}
+  -(w_{j0}^{(\matris{B})}-\tilde w_{j0}^{(\matris{B})})\psi(w_{j0}^{(\matris{B})})\\
+  -\sum_{k=1,k\ne j}^N\left[\ln\frac{\Gamma(w_{jk}^{(\matris{B})})}{\Gamma(\tilde w_{jk}^{(\matris{B})})}
+    -(w_{jk}^{(\matris{B})}-\tilde w_{jk}^{(\matris{B})})\psi(w_{jk}^{(\matris{B})})
+\right].
+\end{multline}
+
+Finally, the terms for the precision parameter $\gamma_j$ can be
+written in the form
+\begin{multline}
+\int d\gamma_j q(\gamma_j)\ln\frac{q(\gamma_j)}{p(\gamma_j|N)}
+=\mean{\ln\frac{c_j^{n_j}\gamma_j^{n_j-1}e^{-c_j\gamma_j}\Gamma(\tilde n_j)}
+      {\tilde c_j^{\tilde n_j}\gamma_j^{\tilde n_j-1}e^{-\tilde c_j\gamma_j}\Gamma(n_j)}}_{q(\gamma_j)}\\
+=\tilde n_j\ln\frac{c_j}{\tilde c_j}                    
+-\ln\frac{\Gamma(n_j)}{\Gamma(\tilde n_j)}
++(n_j-\tilde n_j)\psi(n_j)
+-n_j\Big(1-\frac{\tilde c_j}{c_j}\Big),
+\end{multline}
+where in the last step, we substituted Eq.~\eqref{gammaprop} for
+$\mean{\gamma_j}_{q(\gamma_j)}$ and
+$\mean{\ln\gamma_j}_{q(\gamma_j)}$.
+
+\subsection{Aggregated states}
+It can happen that to distinct binding states have the same diffusion
+constant. Models that describe this are known as aggregated Markov
+models in the
+literature\cite{Fredkin1986,Kienker1989,Bruno2005,Flomenbom2006}. vbSPT
+can fit aggregated models, but care must be taken, since aggregation
+can lead to unidentifiable models grouped in equivalence classes, where
+each class is a set of models with different transition probabilities
+but with identical observable properties.
+
+This means that the extracted transition probabilities are not unique,
+and also that the mean-field approximation might not work well, since
+the variational distributions might not approximate the complicated
+posterior density well. 
+
+If two states $i,j$ are aggregated, they have the same diffusion
+constant. We implement that by defining $N_A\le N$ aggregated states,
+and assign each state to an aggregate. All states in an aggregate have
+identical diffusion constant variational distributions, enforced
+during the M-step by summing up expectation values from all states in
+the aggregate 
+\begin{equation}
+n_j=\tilde n_j+\sum_{t=1}^{T-1}\sum_{m\in \alpha(j)}\mean{\delta_{m,s_t}},\quad
+c_j=\tilde c_j+\sum_{t=1}^{T-1}\sum_{m\in \alpha(j)}
+           \mean{\delta_{m,s_t}}(\vec x_{t+1}-\vec x_t)^2,
+\end{equation}
+where $\alpha(j)$ is the set of states in the same aggregate as state
+$j$. In addition, the lower bound only gets one diffusion constant
+contribution per aggregate. This feature has not yet been
+systematically tested for model selection with aggregated models, and
+aggregated models are not part of the automated model search.
+
+One suggested solution to the unidentifiability problem is to fit the
+data only to special members, canonical
+forms\cite{Kienker1989,Bruno2005}, of each equivalence classes, where
+certain transitions probabilities are set to zero, so as to make the
+remaining transition probabilities non-degenerate. vbSPT supports
+this, and transitions can be disallowed by adding zeros to the jump
+matrix pseudo-count matrix: $\tilde w_{ij}^{(\matris{B})}=0$ means that
+the $i\to j$ transition is forbidden. 
+
+There is no general recipe for which canonical forms to use. It is
+generally assumed that the best choice is to find the canonical form
+with the least number of free parameters\cite{Kienker1989,Bruno2005},
+a problem that is not generally solved.
+
+\subsection{Matlab notation}
+\label{Sec:matlabNotation}
+For future reference, we end by listing a translation table between
+the notation used in this derivation and the variable names used in
+the VB3 code, with the Matlab model object named \texttt{W}.
+
+\begin{itemize}
+\item The parameters of the parameter variational distributions are
+  collected in the \texttt{W.M} and \texttt{W.PM} fields. These are
+  the only fields needed to start iterating, all the rest are computed
+  by the algorithm. If the \texttt{W.E} field is present, then
+  the \texttt{W.M} field is overwritten in the first iteration (and
+  hence the \texttt{W.E} field must be deleted if one wants to use
+  the \texttt{W.M} field to parameterize an initial guess).
+\begin{center}\begin{tabular}{r|l|r|l|c}
+  \textbf{Matlab VB3}& \textbf{This note} & \textbf{Matlab VB3} & \textbf{This note} & \textbf{Eq.} \\
+  \hline
+\ST  \texttt{W.M.wPi(i)} & $w^{(\vec\pi)}_i$        &
+  \texttt{W.PM.wPi(i)}& $\tilde w^{(\vec\pi)}_i$ & \eqref{VBM_pi} \\
+  \hline
+\ST  \texttt{W.M.wB(j,k)} & $w^{(\matris{B})}_{jk}$        &
+  \texttt{W.PM.wB(j,k)}& $\tilde w^{(\matris{B})}_{jk}$ & \eqref{VBM_B}\\
+  \hline
+\ST  \texttt{W.M.wa(j,k)} & $w^{(\vec{a})}_{jk}$        &
+  \texttt{W.PM.wa(j,k)}& $\tilde w^{(\vec{a})}_{jk}$ & \eqref{VBM_a}\\
+\hline
+  \texttt{W.M.n(j)} & $n_j$ & 
+  \texttt{W.PM.n(j)}& $\tilde n_j$ & \eqref{VBM_gamma}\\
+  \texttt{W.M.c(j)} & $c_j$ & \texttt{W.PM.c(j)} & $\tilde c_j$ & \\
+\hline
+  \texttt{W.M.SA} & \multicolumn{3}{l}{State $j$ is in
+  aggregate \texttt{W.M.SA(j)}.}&\\
+\hline
+\end{tabular}\end{center}
+
+\item Expectation values computed in the E-step are in the \texttt{W.E}
+  fields. Each trajectory gets its own field, and for trajectory \texttt{m},
+  the notation is
+\begin{center}\begin{tabular}{r|l|c}
+\textbf{Matlab VB3}& \textbf{This note} & \textbf{Eq.}\\
+\hline
+\ST  \texttt{W.E(m).wPi(j)} & $\mean{\delta_{j,s_1}}$ & \eqref{VBM_pi} \\
+  \hline
+\ST  \texttt{W.E(m).wA(j,k)}& $\sum_{t=1}^{T-2}\mean{\delta_{j,s_t}\delta_{k,s_{t+1}}}$ & \eqref{VBM_B},\eqref{VBM_a}\\
+  \hline
+\ST  \texttt{W.E(m).n(j) }  & $\frac d2\sum_{t=1}^{T-1}\mean{\delta_{j,s_t}}$ & \eqref{VBM_gamma}\\
+  \hline
+\ST  \texttt{W.E(m).c(j) }  & $\sum_{t=1}^{T-1}\mean{\delta_{j,s_t}}(\x_{t+1}-\x_t)^2$ & \eqref{VBM_gamma}\\
+  \hline
+\end{tabular}\end{center}
+\item Misc fields:
+\begin{center}\begin{tabular}{l|l}
+\hline
+\texttt{W.N} & Number of hidden states $N$.\\
+\hline
+\texttt{W.F} & Total lower bound $F$.\\
+\hline
+\texttt{W.Fterms} & Various contributions to $F$ (for debugging). \\
+\hline
+\texttt{W.T(m)} & Length of trajectory $m$. Note that this counts \\
+              &the number of positions, and hence trajectory j will\\
+              & contain \texttt{W.T(m)-1} steps, and \texttt{W.T(m)-2}
+              transitions.\\
+\hline
+\end{tabular}\end{center}
+\clearpage
+\item Interesting estimates are supplied to describe the output and
+  make sense of the converged model and the data. They divided into
+  two fields, \texttt{W.est} for quantities that are small and cheap
+  to compute (and hence are given every time), while \texttt{W.est2}
+  contain quantities that are either large or expensive to compute,
+  and therefore only supplied when the iterator algorithm is called
+  with the \texttt{'estimate'} argument. When given, the
+  cell index \texttt{\{m\}} refers to trajectory number. 
+  
+  \begin{center}\begin{tabular}{l|l|c}
+      \textbf{Matlab VB3}& \textbf{This note} & \textbf{Eq.}\\
+      \hline
+\ST      \texttt{W.est.lnQ(j,k)} & $\ln Q_{j,k}$ & \eqref{VBE_qs}\\
+      \hline
+\ST      \texttt{W.est.Q(j,k)}   & $Q_{j,k}/\max_{j,k}(Q_{j,k})$ & \\
+      \hline
+\ST       \texttt{W.est.Ts(j)}& $\sum_t\mean{\delta_{j,s_t}}$ & \\
+      \hline
+\ST       \texttt{W.est.Ps}& \texttt{W.est.Ts/sum(W.est.Ts)} & \\
+      \hline
+\ST       \texttt{W.est.Amean(j,k)}& $\mean{A_{jk}}_{q(\matris A)}$ & \eqref{Amean} \\
+      \hline
+\ST       \texttt{W.est.Astd(j,k)}& $\std[A_{jk\;q(\matris{A})}]$ & \eqref{Avar} \\
+      \hline
+\ST       \texttt{W.est.lnAmean(k,j)}&$e^{\texttt{W.est.lnAmean}}=\mean{\matris{A}}$ 
+          & approx. rate matrix [$\Delta t^{-1}$]\\
+      \hline
+\ST       \texttt{W.est.dwellMean(j)}& $\mean{\tau_j}=\mean{a_{j}^{-1}}_{q(\vec a)} $ 
+          & mean dwell time, \eqref{eq:dwellmean} \\
+      \hline
+\ST       \texttt{W.est.dwellMode(j)}& $\tau_{j}^*$ 
+          & dwell time \eqref{eq:dwellmode}\\
+      \hline
+\ST       \texttt{W.est.gMean(j)}& $\mean{\gamma_j}_{q(\vec\gamma)}$ & \eqref{gammaprop} \\
+      \hline
+\end{tabular}\end{center}
+\begin{center}\begin{tabular}{l|l|c}
+    \textbf{Matlab VB3}& \textbf{This note} & \textbf{Eq.}\\
+    \hline
+    \texttt{W.est2.lnH{\{m\}}(t,j)}&$\ln H_{t,j} $ & \eqref{VBE_qs} \\
+    \hline
+    \texttt{W.est2.H{\{m\}}(t,j)}& $H_{t,j}/ \max_k(H_{t,k})$ & \\
+    \hline      
+    \texttt{W.est2.viterbi{\{m\}}}& $ $ & Viterbi path, trj. $m$. \\
+    \hline
+    \texttt{W.est2.sMaxP{\{m\}}(j)}& $\mathrm{argmax}_{s_t^m}\mean{\delta_{j,s_t^m}} $ & Most likely states.  \\
+    \hline
+    \texttt{W.est.pst{\{m\}}(t,j)}& $\mean{\delta_{j,s_t^m}}$ & Occupation probability $p(s_t^m=j)$.\\
+\hline
+   
+\end{tabular}\end{center}
+\end{itemize}
+
+
+
+
